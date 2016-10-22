@@ -1,5 +1,6 @@
 defmodule Strixir do
   use HTTPoison.Base
+  use Application
   require Logger
 
   @http_client Application.get_env(:strixir, :http_client)
@@ -7,9 +8,10 @@ defmodule Strixir do
   @user_agent [{"User-agent", "strixir"}]
 
   @type response :: {integer, any} | :jsx.json_term
-  @spec process_response_body(binary) :: term
-  def process_response_body(""), do: nil
-  def process_response_body(body), do: JSX.decode!(body)
+
+  def start(_type, _args) do
+    Strixir.Supervisor.start_link()
+  end
 
   @spec process_response(HTTPoison.Response.t) :: response
   def process_response(%HTTPoison.Response{status_code: 200, body: body}), do: body
@@ -19,26 +21,60 @@ defmodule Strixir do
     _request(:get, path, client)
   end
 
+  def get_async(path, client) do
+    request_with_pagination(:get, path, client, "", true)
+  end
+
   def _request(method, path, client, body \\ "") do
     json_request(method, urlify(client.endpoint, path), body, authorization_header(client.auth, @user_agent))
   end
 
-  def request_with_pagination(method, path, client, body \\ "") do
+  def request_with_pagination(method, path, client, body \\ "", rate_limiting \\ false) do
     url = client.endpoint |> urlify(path) |> add_params_to_url([per_page: 200])
     headers = authorization_header(client.auth, @user_agent)
-    request_with_page(method, url, body, headers, 1, [])
+    response = request_with_page(method, url, body, headers, 1, [], rate_limiting)
   end
 
-  defp request_with_page(method, url, body, headers, page, acc) do
+  def request_with_page(method, url, body, headers, page, acc, false) do
     request_url = url |> add_params_to_url([page: page])
     Logger.debug "Requesting #{request_url}"
-    case json_request(method, request_url, body, headers) do
-      response when response == [] ->
+    case json_request(method, request_url, body, headers) |> process_paginated_response do
+      {false, response} ->
         Logger.debug "Got response #{inspect response}"
         acc
+      {true, response} ->
+        Logger.debug "Got response #{inspect response}"
+        request_with_page(method, url, body, headers, page + 1, response ++ acc, false)
+    end
+  end
+
+  def request_with_page(method, url, body, headers, page, acc, true) do
+    request_url = url |> add_params_to_url([page: page])
+    Logger.debug "Queuing request #{request_url}"
+    GenServer.call(RateLimiting, :push, [method, request_url, body, headers])
+    response = case Strixir.AsyncRequests.work do
+      nil ->
+        raise "No work to process"
+      r -> r
+    end
+    case response |> process_paginated_response do
+      {false, response} ->
+        Logger.debug "Got response #{inspect response}"
+        acc
+      {true, response} ->
+        Logger.debug "Got response #{inspect response}"
+        request_with_page(method, url, body, headers, page + 1, response ++ acc, true)
+    end
+  end
+
+  def process_paginated_response(response) do
+    case response do
+      response when response == [] ->
+        Logger.debug "Got response #{inspect response}"
+        {false, nil}
       response                     ->
         Logger.debug "Got response #{inspect response}"
-        request_with_page(method, url, body, headers, page + 1, response ++ acc)
+        {true, response}
     end
   end
 
@@ -46,7 +82,7 @@ defmodule Strixir do
     "#{endpoint}#{path}"
   end
 
-  defp json_request(method, url, body \\ "", headers \\ [], options \\ []) do
+  def json_request(method, url, body \\ "", headers \\ [], options \\ []) do
     raw_request(method, url, JSX.encode!(body), headers, options)
   end
 

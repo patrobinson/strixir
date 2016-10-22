@@ -15,7 +15,8 @@ defmodule Strixir.Mixfile do
   #
   # Type "mix help compile.app" for more information
   def application do
-    [applications: [ :httpoison, :exjsx, :logger ]]
+    [applications: [ :httpoison, :exjsx, :logger ],
+     mod: {Strixir, []}]
   end
 
   # Dependencies can be Hex packages:

@@ -1,6 +1,9 @@
 use Mix.Config
 
-config :strixir, :http_client, HTTPoison
+config :strixir,
+  http_client: HTTPoison,
+  callback_module: IO,
+  callback_function: "inspect"
 
 config :logger,
   backends: [:console],
