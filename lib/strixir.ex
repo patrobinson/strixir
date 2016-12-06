@@ -10,7 +10,7 @@ defmodule Strixir do
   @type response :: {integer, any} | :jsx.json_term
 
   def start(_type, _args) do
-    Strixir.Supervisor.start_link()
+    {:ok, sup_pid} = Strixir.Supervisor.start_link()
   end
 
   @spec process_response(HTTPoison.Response.t) :: response
@@ -51,7 +51,7 @@ defmodule Strixir do
   def request_with_page(method, url, body, headers, page, acc, true) do
     request_url = url |> add_params_to_url([page: page])
     Logger.debug "Queuing request #{request_url}"
-    GenServer.call(RateLimiting, :push, [method, request_url, body, headers])
+    :ok = Strixir.RateLimiting.queue_request([method, request_url, body, headers])
     response = case Strixir.AsyncRequests.work do
       nil ->
         raise "No work to process"
