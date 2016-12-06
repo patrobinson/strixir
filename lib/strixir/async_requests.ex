@@ -8,7 +8,7 @@ defmodule Strixir.AsyncRequests do
   end
 
   def work do
-    GenServer.call(__MODULE__, :work)
+    GenServer.call(__MODULE__, :work, :infinity)
   end
 
   def handle_call(:work, _from, state) do
