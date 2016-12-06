@@ -15,7 +15,6 @@ defmodule Strixir.AsyncRequests do
     case Strixir.RateLimiting.pop_request do
       [method, request_url, body, headers] ->
         Logger.debug "Processing request #{request_url}"
-        {"page", page} = URI.parse(request_url).query |> Enum.to_list() |> List.keyfind("page", 0)
         {:reply, Strixir.json_request(method, request_url, body, headers), state}
       _ ->
         Logger.debug "No request to process"

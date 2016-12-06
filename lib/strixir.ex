@@ -44,7 +44,7 @@ defmodule Strixir do
         acc
       {true, response} ->
         Logger.debug "Got response #{inspect response}"
-        request_with_page(method, url, body, headers, page + 1, response ++ acc, false)
+        request_with_page(method, url, body, headers, page + 1, JSX.decode!(response) ++ acc, false)
     end
   end
 
@@ -52,24 +52,24 @@ defmodule Strixir do
     request_url = url |> add_params_to_url([page: page])
     Logger.debug "Queuing request #{request_url}"
     :ok = Strixir.RateLimiting.queue_request([method, request_url, body, headers])
-    response = case Strixir.AsyncRequests.work do
+    raw_response = case Strixir.AsyncRequests.work do
       nil ->
         raise "No work to process"
       r -> r
     end
-    case response |> process_paginated_response do
+    case raw_response |> process_paginated_response do
       {false, response} ->
         Logger.debug "Got response #{inspect response}"
         acc
       {true, response} ->
         Logger.debug "Got response #{inspect response}"
-        request_with_page(method, url, body, headers, page + 1, response ++ acc, true)
+        request_with_page(method, url, body, headers, page + 1, JSX.decode!(response) ++ acc, true)
     end
   end
 
   def process_paginated_response(response) do
     case response do
-      response when response == [] ->
+      response when response == "[]" ->
         Logger.debug "Got response #{inspect response}"
         {false, nil}
       response                     ->
