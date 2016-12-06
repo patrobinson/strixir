@@ -3,7 +3,7 @@ defmodule Strixir do
   use Application
   require Logger
 
-  @http_client Application.get_env(:strixir, :http_client)
+  @http_client Application.get_env(:strixir, :http_client, HTTPoison)
 
   @user_agent [{"User-agent", "strixir"}]
 
