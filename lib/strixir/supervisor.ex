@@ -6,12 +6,9 @@ defmodule Strixir.Supervisor do
   end
 
   def init(:ok) do
-    callback_module = Application.get_env(:strixir, :async_callback_module)
-    callback_function = Application.get_env(:strixir, :async_callback_function)
-
     children = [
-      worker(Strixir.RateLimiting, [RateLimiter]),
-      worker(Strixir.AsyncRequests, [AsyncWorker])
+      worker(Strixir.RateLimiting, [Strixir.RateLimiting]),
+      worker(Strixir.AsyncRequests, [Strixir.AsyncRequests])
     ]
 
     supervise(children, strategy: :one_for_one)

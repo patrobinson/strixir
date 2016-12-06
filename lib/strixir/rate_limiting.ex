@@ -8,17 +8,17 @@ defmodule Strixir.RateLimiting do
 
   defstruct fifteen_start: 0, fifteen_count: 0, day_start: 0, day_count: 0, requests: []
 
-  def start_link(name) do
+  def start_link(_) do
     Logger.debug "Starting RateLimiting"
-    {:ok,_pid} = GenServer.start_link(__MODULE__, %Strixir.RateLimiting{}, name: name)
+    {:ok,_pid} = GenServer.start_link(__MODULE__, %Strixir.RateLimiting{}, name: __MODULE__)
   end
 
-  def queue_request(pid, request_args) do
-    GenServer.cast(pid, {:push, request_args})
+  def queue_request(request_args) do
+    GenServer.call(__MODULE__, {:push, request_args})
   end
 
-  def pop_request(pid),
-  do: GenServer.call(pid, :pop)
+  def pop_request,
+  do: GenServer.call(__MODULE__, :pop)
 
   # Internal implementation
 
@@ -53,6 +53,9 @@ defmodule Strixir.RateLimiting do
     {:reply, h, %Strixir.RateLimiting{fifteen_start: new_fs, fifteen_count: new_fc, day_start: new_ds, day_count: new_dc, requests: t}}
   end
 
-  def handle_cast({:push, request_args}, state),
-  do: { :noreply, [request_args | state] }
+def handle_call({:push, request_args}, _from, state = %Strixir.RateLimiting{fifteen_start: _, fifteen_count: _, day_start: _, day_count: _, requests: []}),
+  do: {:reply, :ok, %{state | requests: [request_args]}}
+
+  def handle_call({:push, request_args}, _from, state),
+  do: {:reply, :ok, %{state | requests: [state.requests | request_args]}}
 end

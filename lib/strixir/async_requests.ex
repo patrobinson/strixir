@@ -1,19 +1,18 @@
 defmodule Strixir.AsyncRequests do
-  import Strixir
   use GenServer
   require Logger
 
-  def start_link(name) do
+  def start_link(_) do
     Logger.debug "Starting AsyncRequests"
-    GenServer.start_link(__MODULE__, name: name)
+    {:ok,_pid} = GenServer.start_link(__MODULE__, [], name: __MODULE__)
   end
 
-  def work(pid) do
-    GenServer.call(pid, {:work})
+  def work do
+    GenServer.call(__MODULE__, :work)
   end
 
-  def handle_call({:work}, state) do
-    case GenServer.call(RateLimiter, :pop_request) do
+  def handle_call(:work, _from, state) do
+    case Strixir.RateLimiting.pop_request do
       [method, request_url, body, headers] ->
         Logger.debug "Processing request #{request_url}"
         {"page", page} = URI.parse(request_url).query |> Enum.to_list() |> List.keyfind("page", 0)
