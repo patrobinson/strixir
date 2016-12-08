@@ -18,7 +18,7 @@ defmodule Strixir.HTTPoison.InMemory do
 "
   @api_endpoint "https://www.strava.com/api/v3/"
 
-  def request!(:get, url, _body, _headers, _options) do
+  def request(:get, url, _body, _headers, _options) do
     response = case url do
       "#{@api_endpoint}athletes/12345678/activities?page=1&per_page=200" -> @activity_response
       "#{@api_endpoint}athletes/12345678/activities?page=2&per_page=200" -> "[]"
@@ -26,9 +26,9 @@ defmodule Strixir.HTTPoison.InMemory do
       "#{@api_endpoint}athletes/async/activities?page=2&per_page=200" -> "[]"
     end
 
-    %HTTPoison.Response{ status_code: 200,
+    {:ok, %HTTPoison.Response{ status_code: 200,
                                                  headers: %{},
-                                                 body: response }
+                                                 body: response }}
   end
 end
 

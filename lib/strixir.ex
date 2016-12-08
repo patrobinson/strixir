@@ -42,9 +42,12 @@ defmodule Strixir do
       {false, response} ->
         Logger.debug "Got response #{inspect response}"
         acc
-      {true, response} ->
+      {true, {:ok, response}} ->
         Logger.debug "Got response #{inspect response}"
         request_with_page(method, url, body, headers, page + 1, JSX.decode!(response) ++ acc, false)
+      {true, {:error, reason}} ->
+        Logger.debug "Got bad response #{reason}"
+        {:error, reason}
     end
   end
 
@@ -63,21 +66,22 @@ defmodule Strixir do
         :timer.sleep(15 * 60 * 1000)
       {false, response} ->
         Logger.debug "Got response #{inspect response}"
-        acc
-      {true, response} ->
+        {:ok, acc}
+      {true, {:ok, response}} ->
         Logger.debug "Got response #{inspect response}"
         request_with_page(method, url, body, headers, page + 1, JSX.decode!(response) ++ acc, true)
+      {true, {:error, reason}} ->
+        Logger.debug "Got bad response #{reason}"
+        {:error, acc}
     end
   end
 
-  def process_paginated_response(response) do
-    case response do
-      response when response == "[]" ->
-        Logger.debug "Got response #{inspect response}"
-        {false, nil}
-      response                     ->
-        Logger.debug "Got response #{inspect response}"
-        {true, response}
+  def process_paginated_response(msg) do
+    case msg do
+      {:ok, response} when response == "[]" ->
+        {false, response}
+      {success, response} ->
+        {true, {success, response}}
     end
   end
 
@@ -90,7 +94,12 @@ defmodule Strixir do
   end
 
   defp raw_request(method, url, body \\ "", headers \\ [], options \\ []) do
-    @http_client.request!(method, url, body, headers, options) |> process_response
+    case @http_client.request(method, url, body, headers, options) do
+      {:ok, response} ->
+        {:ok, response |> process_response}
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
   defp authorization_header(%{access_token: token}, headers) do
