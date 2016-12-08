@@ -32,7 +32,7 @@ defmodule Strixir do
   def request_with_pagination(method, path, client, body \\ "", rate_limiting \\ false) do
     url = client.endpoint |> urlify(path) |> add_params_to_url([per_page: 200])
     headers = authorization_header(client.auth, @user_agent)
-    response = request_with_page(method, url, body, headers, 1, [], rate_limiting)
+    request_with_page(method, url, body, headers, 1, [], rate_limiting)
   end
 
   def request_with_page(method, url, body, headers, page, acc, false) do
@@ -58,6 +58,9 @@ defmodule Strixir do
       r -> r
     end
     case raw_response |> process_paginated_response do
+      {_, {503, _}} ->
+        Logger.debug "We're being rate limited"
+        :timer.sleep(15 * 60 * 1000)
       {false, response} ->
         Logger.debug "Got response #{inspect response}"
         acc
